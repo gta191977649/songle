@@ -1,6 +1,7 @@
 import math
 import numpy as np
 import librosa
+import utils as helper
 
 def extractChroma(filename):
     y, sr = librosa.load(filename, duration=5)
@@ -67,11 +68,40 @@ def findPossibleLineSegements(r_norm):
                 tmp = tmp + r_norm[tau,lag]
             r_all[frame,lag] = tmp / (frame - lag + 1)
     return r_all
+def smoothDifferential(r_all,t,l):
+    k_size = 4
+    r = 0
+    for w in range(-k_size,k_size):
+        # Check lag offest Boundary
+        if l+w <= t and l+w > 0:
+            r = r + w * r_all[t,l+w]
+
+    return r
+
+def pickUpPeaks(r_all):
+    length = r_all.shape[0]
+    for frame in range(0,length):
+        smooth_diff =[]
+        for lag in range(0, frame):
+            diff = smoothDifferential(r_all,frame,lag)
+            smooth_diff.append(diff)
+        peaks_indices = np.where(np.diff(np.sign(smooth_diff)))[0]
+
+
+
+        #print("a",frame)
+        #print(len(smooth_diff))
 
 if __name__ == '__main__':
     chroma = extractChroma("1.mp3")
     r = calcSimilarity(chroma)
     r_norm = normalizeSimilarity(r)
-    r_all = findPossibleLineSegements(r_norm)
-    print(r_all.shape)
-    print(r_all)
+    peaks = pickUpPeaks(r_norm)
+
+    spline = helper.b_spline()
+
+    helper.horiFilter(r_norm,spline)
+    #print(peaks)
+    #print(r_all.shape)
+    #print(r_all)
+
