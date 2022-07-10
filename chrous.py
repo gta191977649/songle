@@ -100,6 +100,7 @@ if __name__ == '__main__':
     r_norm = normalizeSimilarity(r)
     # peaks = pickUpPeaks(r_norm)
     # Debug
+    print(r_norm)
     debug.checkNan(r)
     debug.checkNan(r_norm)
     #debug.debugPlot(r_norm)
