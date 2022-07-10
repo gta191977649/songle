@@ -101,7 +101,7 @@ if __name__ == '__main__':
     # peaks = pickUpPeaks(r_norm)
     # Debug
     print(r_norm)
-    debug.checkNan(r)
+    #debug.checkNan(r)
     debug.checkNan(r_norm)
     #debug.debugPlot(r_norm)
     debug.plotHorilFilter(r_norm)
