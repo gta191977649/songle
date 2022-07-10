@@ -1,13 +1,13 @@
 import math
 import numpy as np
 import librosa
-import utils as helper
+import debug as debug
 
 def extractChroma(filename):
     y, sr = librosa.load(filename, duration=5)
-    chroma = librosa.feature.chroma_stft(y=y, sr=sr)
+    chroma_vectors = librosa.feature.chroma_stft(y=y, sr=sr)
     # Convert Chroma matrix to [ [time] => [Chroma..], ... ] forms align the data
-    return chroma.T
+    return chroma_vectors.T
 
 def similarity(t,l,chroma):
     # structure with article
@@ -42,7 +42,7 @@ def normalizeSimilarity(r):
     for frame in range(0,length-1):
         dir = {"left":0,"right":0,"up":0,"down":0,"upRight":0,"downRight":0}
         for lag in range(0,frame):
-            for tau in range(1,lag_size):
+            for tau in range(0,lag_size):
                 if frame-tau >= 1: dir["left"] = dir["left"] + r[frame-tau,lag] / lag_size
                 if frame+tau < length: dir["right"] = dir["right"] + r[frame+tau,lag] / lag_size
                 if lag+tau <= frame: dir["up"] = dir["up"] + r[frame,lag+tau] / lag_size
@@ -87,21 +87,20 @@ def pickUpPeaks(r_all):
             smooth_diff.append(diff)
         peaks_indices = np.where(np.diff(np.sign(smooth_diff)))[0]
 
-
-
         #print("a",frame)
         #print(len(smooth_diff))
 
+
 if __name__ == '__main__':
-    chroma = extractChroma("1.mp3")
+    # 1. Extract feature
+    chroma = extractChroma("1.wav")
+    # 2. Calculate similarity between chroma vectors
     r = calcSimilarity(chroma)
+    # 3. List repeated sections
     r_norm = normalizeSimilarity(r)
-    peaks = pickUpPeaks(r_norm)
-
-    spline = helper.b_spline()
-
-    helper.horiFilter(r_norm,spline)
-    #print(peaks)
-    #print(r_all.shape)
-    #print(r_all)
-
+    # peaks = pickUpPeaks(r_norm)
+    # Debug
+    debug.checkNan(r)
+    debug.checkNan(r_norm)
+    #debug.debugPlot(r_norm)
+    debug.plotHorilFilter(r_norm)
