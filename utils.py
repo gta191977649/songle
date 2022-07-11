@@ -1,10 +1,11 @@
 import numpy as np
+import scipy as sp
 import matplotlib.pyplot as plt
 
 def b_spline():
     b_size = 21
     bfilt = np.ones(b_size)
-    spline = np.convolve(bfilt, np.convolve(bfilt, bfilt,mode='same'),mode='same')
+    spline = sp.signal.fftconvolve(bfilt, sp.signal.fftconvolve(bfilt, bfilt,mode='same'),mode='same')
     spline = spline/sum(spline)
     return spline
 
