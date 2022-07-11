@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 def b_spline():
-    b_size = 201
+    b_size = 21
     bfilt = np.ones(b_size)
     spline = np.convolve(bfilt, np.convolve(bfilt, bfilt,mode='same'),mode='same')
     spline = spline/sum(spline)

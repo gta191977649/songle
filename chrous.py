@@ -3,105 +3,116 @@ import numpy as np
 import librosa
 import debug as debug
 
-def extractChroma(filename):
-    y, sr = librosa.load(filename, duration=5)
-    chroma_vectors = librosa.feature.chroma_stft(y=y, sr=sr)
-    # Convert Chroma matrix to [ [time] => [Chroma..], ... ] forms align the data
-    return chroma_vectors.T
+class Chrous:
+    def __init__(self, file):
+        self.file = file
 
-def similarity(t,l,chroma):
-    # structure with article
-    length = chroma.shape[0]
-    lag = l
-    if lag < 0 or lag > length: raise Exception("lag must satifiy (0 <= l <= t)")
+    def extractChroma(self,filename):
+        y, sr = librosa.load(filename, duration=5)
+        chroma = librosa.feature.chroma_stft(y=y, sr=sr)
+        # Convert Chroma matrix to [ [time] => [Chroma..], ... ] forms align the data
+        return chroma.T
 
-    # compute v1
-    max_t1 = max(chroma[t])
-    vt1 = chroma[t]
-    v1 = vt1 / max_t1 if max_t1 > 0 else vt1
+    def similarity(self,t,l,chroma):
+        # structure with article
+        length = chroma.shape[0]
+        lag = l
+        if lag < 0 or lag > length: raise Exception("lag must satifiy (0 <= l <= t)")
 
-    # compute v2
-    max_t2 = max(chroma[t-l])
-    vt2 = chroma[t-l]
-    v2 = vt2 / max_t2 if max_t2 > 0 else vt2
-    return 1 - np.linalg.norm(v1-v2) / math.sqrt(12)
+        # compute v1
+        max_t1 = max(chroma[t])
+        vt1 = chroma[t]
+        v1 = vt1 / max_t1 if max_t1 > 0 else vt1
 
-def calcSimilarity(chroma):
-    # Note: similarity is the r(t,l) in article
-    length = chroma.shape[0]
-    r = np.empty(shape=(length,length))
-    for t in range(0,length):
-        for lag in range(0,t):
-            r[t,lag] = similarity(t,lag,chroma)
-    return r
+        # compute v2
+        max_t2 = max(chroma[t-l])
+        vt2 = chroma[t-l]
+        v2 = vt2 / max_t2 if max_t2 > 0 else vt2
+        return 1 - np.linalg.norm(v1-v2) / math.sqrt(12)
 
-def normalizeSimilarity(r):
-    length = r.shape[0]
-    r_norm = np.empty(shape=(length,length))
-    lag_size = 15
-    for frame in range(0,length-1):
-        dir = {"left":0,"right":0,"up":0,"down":0,"upRight":0,"downRight":0}
-        for lag in range(0,frame):
-            for tau in range(0,lag_size):
-                if frame-tau >= 1: dir["left"] = dir["left"] + r[frame-tau,lag] / lag_size
-                if frame+tau < length: dir["right"] = dir["right"] + r[frame+tau,lag] / lag_size
-                if lag+tau <= frame: dir["up"] = dir["up"] + r[frame,lag+tau] / lag_size
-                if lag-tau >= 0: dir["down"] = dir["down"] + r[frame,lag-tau] / lag_size
-                if frame+tau < length and lag + tau < length: dir["upRight"] = dir["upRight"] + r[frame+tau,lag+tau]/lag_size
-                if frame-tau >= 0 and lag - tau >=0: dir["downRight"] = dir["downRight"] + r[frame-tau,lag-tau]/lag_size
-            # find max mean. Step 2
-            max_val = max([dir["left"],dir["right"],dir["up"],dir["down"],dir["upRight"],dir["downRight"]])
-            min_val = min([dir["left"],dir["right"],dir["up"],dir["down"],dir["upRight"],dir["downRight"]])
-            if max_val == dir["left"] or max_val == dir["right"]:
-                r_norm[frame,lag] = r[frame,lag] - min_val
-            else:
-                r_norm[frame,lag] = r[frame,lag] - max_val
-    return r_norm
+    def calcSimilarity(self,chroma):
+        # Note: similarity is the r(t,l) in article
+        length = chroma.shape[0]
+        r = np.zeros(shape=(length,length))
+        print(r.shape)
+        for t in range(0,length):
+            for lag in range(0,t):
+                r[t,lag] = self.similarity(t,lag,chroma)
+        return r
 
-def findPossibleLineSegements(r_norm):
-    length = r.shape[0]
-    r_all = np.empty(shape=(length,length))
-    for frame in range(0,length-1):
-        for lag in range(0,frame):
-            tmp = 0
-            for tau in range(lag,frame):
-                tmp = tmp + r_norm[tau,lag]
-            r_all[frame,lag] = tmp / (frame - lag + 1)
-    return r_all
-def smoothDifferential(r_all,t,l):
-    k_size = 4
-    r = 0
-    for w in range(-k_size,k_size):
-        # Check lag offest Boundary
-        if l+w <= t and l+w > 0:
-            r = r + w * r_all[t,l+w]
+    def normalizeSimilarity(self,r):
+        length = r.shape[0]
+        r_norm = np.zeros(shape=(length,length))
+        lag_size = 15
+        for frame in range(0,length-1):
+            dir = {"left":0,"right":0,"up":0,"down":0,"upRight":0,"downRight":0}
+            for lag in range(0,frame):
+                for tau in range(0,lag_size):
+                    if frame-tau >= 1: dir["left"] = dir["left"] + r[frame-tau,lag] / lag_size
+                    if frame+tau < length: dir["right"] = dir["right"] + r[frame+tau,lag] / lag_size
+                    if lag+tau <= frame: dir["up"] = dir["up"] + r[frame,lag+tau] / lag_size
+                    if lag-tau >= 0: dir["down"] = dir["down"] + r[frame,lag-tau] / lag_size
+                    if frame+tau < length and lag + tau < length: dir["upRight"] = dir["upRight"] + r[frame+tau,lag+tau]/lag_size
+                    if frame-tau >= 0 and lag - tau >=0: dir["downRight"] = dir["downRight"] + r[frame-tau,lag-tau]/lag_size
+                # find max mean. Step 2
+                max_val = max([dir["left"],dir["right"],dir["up"],dir["down"],dir["upRight"],dir["downRight"]])
+                min_val = min([dir["left"],dir["right"],dir["up"],dir["down"],dir["upRight"],dir["downRight"]])
+                if max_val == dir["left"] or max_val == dir["right"]:
+                    r_norm[frame,lag] = r[frame,lag] - min_val
+                else:
+                    r_norm[frame,lag] = r[frame,lag] - max_val
+        return r_norm
 
-    return r
+    def findPossibleLineSegements(self,r_norm):
+        length = r_norm.shape[0]
+        r_all = np.zeros(shape=(length,length))
+        for frame in range(0,length-1):
+            for lag in range(0,frame):
+                tmp = 0
+                for tau in range(lag,frame):
+                    tmp = tmp + r_norm[tau,lag]
+                r_all[frame,lag] = tmp / (frame - lag + 1)
+        return r_all
+    def smoothDifferential(self,r_all,t,l):
+        k_size = 4
+        r = 0
+        for w in range(-k_size,k_size):
+            # Check lag offest Boundary
+            if l+w <= t and l+w > 0:
+                r = r + w * r_all[t,l+w]
 
-def pickUpPeaks(r_all):
-    length = r_all.shape[0]
-    for frame in range(0,length):
-        smooth_diff =[]
-        for lag in range(0, frame):
-            diff = smoothDifferential(r_all,frame,lag)
-            smooth_diff.append(diff)
-        peaks_indices = np.where(np.diff(np.sign(smooth_diff)))[0]
+        return r
 
-        #print("a",frame)
-        #print(len(smooth_diff))
+    def pickUpPeaks(self,r_all):
+        peaks = []
+        length = r_all.shape[0]
+        for frame in range(0,length):
+            smooth_diff =[]
+            for lag in range(0, frame):
+                diff = self.smoothDifferential(r_all,frame,lag)
+                smooth_diff.append(diff)
+            peaks_indices = np.where(np.diff(np.sign(smooth_diff)))[0].tolist()
+            peaks.append(peaks_indices)
+        return peaks
 
+    def detect(self):
+        # 1. Extract feature
+        chroma_vec = self.extractChroma(self.file)
+        # 2. Calculate similarity between chroma vectors
+        r_all = self.calcSimilarity(chroma_vec)
+        # 3. List repeated sections
+        r_norm = self.normalizeSimilarity(r_all)
+        r_peaks = self.pickUpPeaks(r_norm)
+
+
+        # Debug ...
+        #print(r_norm)
+        #debug.checkNan(r_norm)
+        #debug.plot(r_norm)
+        debug.plotHorilFilter(r_norm)
+        #debug.plotVertFilter(r_norm)
 
 if __name__ == '__main__':
-    # 1. Extract feature
-    chroma = extractChroma("1.wav")
-    # 2. Calculate similarity between chroma vectors
-    r = calcSimilarity(chroma)
-    # 3. List repeated sections
-    r_norm = normalizeSimilarity(r)
-    # peaks = pickUpPeaks(r_norm)
-    # Debug
-    print(r_norm)
-    #debug.checkNan(r)
-    debug.checkNan(r_norm)
-    #debug.debugPlot(r_norm)
-    debug.plotHorilFilter(r_norm)
+    chrous = Chrous("1.wav")
+    chrous.detect()
+

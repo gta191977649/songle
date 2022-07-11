@@ -11,8 +11,8 @@ def plot(out):
             y.append(val)
     print("LEN: X:",len(x),"LEN: Y:",len(y))
     #plt.pause(2)
-
-    plt.scatter(x, y, s=1)
+    checkNan(out)
+    plt.scatter(x, y, s=0.5)
     plt.show()
 def plotConv(r_norm):
     spline = helper.b_spline()
