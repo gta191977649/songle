@@ -1,6 +1,8 @@
 import math
 import numpy as np
 import librosa
+import utils as helper
+from skimage.filters import threshold_otsu
 import debug as debug
 
 class Chrous:
@@ -73,7 +75,7 @@ class Chrous:
                     tmp = tmp + r_norm[tau,lag]
                 r_all[frame,lag] = tmp / (frame - lag + 1)
         return r_all
-    def smoothDifferential(self,r_all,t,l):
+    def smoothed(self,r_all,t,l):
         k_size = 4
         r = 0
         for w in range(-k_size,k_size):
@@ -82,16 +84,20 @@ class Chrous:
                 r = r + w * r_all[t,l+w]
 
         return r
-
+    def movingAverageFilter(self,r):
+        filter = helper.b_spline()
+        r_all = r - helper.horiFilter(helper.vertFilter(r,filter),filter)
+        return r_all
     def pickUpPeaks(self,r_all):
         peaks = []
         length = r_all.shape[0]
         for frame in range(0,length):
             smooth_diff =[]
             for lag in range(0, frame):
-                diff = self.smoothDifferential(r_all,frame,lag)
+                diff = self.smoothed(r_all,frame,lag)
                 smooth_diff.append(diff)
             peaks_indices = np.where(np.diff(np.sign(smooth_diff)))[0].tolist()
+            print(peaks_indices)
             peaks.append(peaks_indices)
         return peaks
 
@@ -102,14 +108,17 @@ class Chrous:
         r_all = self.calcSimilarity(chroma_vec)
         # 3. List repeated sections
         r_norm = self.normalizeSimilarity(r_all)
-        r_peaks = self.pickUpPeaks(r_norm)
+        #r_peaks = self.pickUpPeaks(r_norm)
 
-
+        r_f = self.movingAverageFilter(r_norm)
+        print(r_f)
+        #peak = threshold_otsu(r_norm.tolist())
+        #print(r_peaks)
         # Debug ...
         #print(r_norm)
         #debug.checkNan(r_norm)
-        #debug.plot(r_norm)
-        debug.plotHorilFilter(r_norm)
+        debug.plot(r_f)
+        #debug.plotHorilFilter(r_norm)
         #debug.plotVertFilter(r_norm)
 
 if __name__ == '__main__':
