@@ -2,9 +2,9 @@ import math
 import numpy as np
 import librosa
 import utils as helper
-from skimage.filters import threshold_otsu
+from skimage.filters import try_all_threshold,threshold_otsu
 import debug as debug
-
+import matplotlib.pyplot as plt
 class Chrous:
     def __init__(self, file):
         self.file = file
@@ -82,24 +82,30 @@ class Chrous:
             # Check lag offest Boundary
             if l+w <= t and l+w > 0:
                 r = r + w * r_all[t,l+w]
-
         return r
     def movingAverageFilter(self,r):
         filter = helper.b_spline()
         r_all = r - helper.horiFilter(helper.vertFilter(r,filter),filter)
         return r_all
-    def pickUpPeaks(self,r_all):
+    def pickpPeaks(self,r_all):
         peaks = []
+        # apply b-spline filter
+        r_all = self.movingAverageFilter(r_all)
         length = r_all.shape[0]
         for frame in range(0,length):
             smooth_diff =[]
             for lag in range(0, frame):
+                # apply smooth differential
                 diff = self.smoothed(r_all,frame,lag)
                 smooth_diff.append(diff)
+
             peaks_indices = np.where(np.diff(np.sign(smooth_diff)))[0].tolist()
-            print(peaks_indices)
+            #print(peaks_indices)
             peaks.append(peaks_indices)
         return peaks
+    def discriminantCriterion(self,r_all):
+        threshold = threshold_otsu(r_all)
+        #fig.show()
 
     def detect(self):
         # 1. Extract feature
@@ -108,16 +114,17 @@ class Chrous:
         r_all = self.calcSimilarity(chroma_vec)
         # 3. List repeated sections
         r_norm = self.normalizeSimilarity(r_all)
-        #r_peaks = self.pickUpPeaks(r_norm)
+        r_peaks = self.pickpPeaks(r_norm)
 
-        r_f = self.movingAverageFilter(r_norm)
-        print(r_f)
+        self.discriminantCriterion(r_norm)
+        #r_f = self.movingAverageFilter(r_norm)
+        #print(r_f)
         #peak = threshold_otsu(r_norm.tolist())
-        #print(r_peaks)
+        print(r_peaks)
         # Debug ...
         #print(r_norm)
         #debug.checkNan(r_norm)
-        debug.plot(r_f)
+        debug.plot(r_peaks)
         #debug.plotHorilFilter(r_norm)
         #debug.plotVertFilter(r_norm)
 
