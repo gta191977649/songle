@@ -8,7 +8,6 @@ img = data.camera()
 #img = np.digitize(img, threshold_multiotsu(img))
 
 thresh = threshold_otsu(img.ravel())
-
 binary = img > thresh
 
 

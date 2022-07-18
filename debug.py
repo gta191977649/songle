@@ -3,17 +3,21 @@ import matplotlib.pyplot as plt
 import math
 
 def plot(out):
-    x = []
-    y = []
-    for time, frame_val in enumerate(out):
-        for val in frame_val:
-            x.append(time)
-            y.append(val)
-    print("LEN: X:",len(x),"LEN: Y:",len(y))
-    #plt.pause(2)
     checkNan(out)
-    plt.scatter(x, y, s=0.5)
+    plt.imshow(out,interpolation='none')
     plt.show()
+    # x = []
+    # y = []
+    # for time, frame_val in enumerate(out):
+    #
+    #     for val in frame_val:
+    #         print(val)
+    #         x.append(time)
+    #         y.append(val)
+    # print("LEN: X:",len(x),"LEN: Y:",len(y))
+    # plt.pause(2)
+    # plt.scatter(x, y, s=0.5)
+    # plt.show()
 def plotConv(r_norm):
     spline = helper.b_spline()
     out = r_norm - helper.horiFilter(helper.vertFilter(r_norm, spline), spline)
