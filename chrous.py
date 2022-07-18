@@ -14,7 +14,7 @@ class Chrous:
         self.file = file
 
     def extractChroma(self, filename):
-        y, sr = librosa.load(filename)
+        y, sr = librosa.load(filename,duration=5)
         sf.write("out.wav",y,sr)
         chroma = librosa.feature.chroma_stft(y=y, sr=sr)
         # Convert Chroma matrix to [ [time] => [Chroma..], ... ] forms align the data
@@ -89,8 +89,14 @@ class Chrous:
             if l + w <= t and l + w > 0:
                 r = r + w * r_all[t, l + w]
         return r
-
-    def movingAverageFilter(self, r):
+    def smoothDifferntial(self,r):
+        T = r.shape[0]
+        out = np.zeros(shape=(T, T))
+        for frame in range(0,T):
+            for lag in range(0,frame):
+                out[frame,lag] = self.smoothed(r, frame, lag)
+        return out
+    def applyMovingAverageFilter(self, r):
         filter = helper.b_spline()
         r_all = r - helper.horiFilter(helper.vertFilter(r, filter), filter)
         return r_all
@@ -113,50 +119,20 @@ class Chrous:
             peaks.append(peaks_indices)
         return peaks
 
-    def findSegements(self, r_all):
+    # r_all: the simaritly after normalization
+    # r: the initial simaritly obtain by calculaye similarity function
+    def findSegements(self, r_all,r):
         #frame_length = CONSTANT.FRAME_LEN * CONSTANT.THRESHOLD_LEN * 1000
         frame_length = 300
+        # 1. Obtain smooth r_all
+        r_smooth = self.smoothDifferntial(r_all)
+        #debug.plot(r_smooth)
+        # 2. Apply moving average filter (b-spline)
+        r_filtered = self.applyMovingAverageFilter(r)
+        # 3. Find Threshold
 
-        #  === [ Find Threshold ] ===
-        # Doing discriminantCriterion
-        # Transpose r_all matrix
-        r_t = r_all.T
-        r_t = self.removeDiagonal(r_t)
-        r_merged = r_all + r_t
-        threshold = self.discriminantCriterion(r_merged)
-        T = r_all.shape[0]
-        print("Singal Length:",T)
-        print("Threshold:",threshold)
-        r_debug = np.zeros(shape=(T, T))
-        found_segements = []
-        for frame in range(0, T):
-            segement = []
-            for lag in range(0,frame):
-                # Check threshold
-                similarity = r_all[frame,lag]
-                #similarity = self.smoothed(r_all, frame, lag)
-                if similarity > threshold:
-                    r_debug[frame,lag] = 1
-                    segement.append({
-                        "time":lag,
-                        "similarity":similarity
-                    })
-                # ensure buffered continues time is more than 6.4s in minium
-                elif len(segement) > 0 and len(segement) < frame_length:
-                    segement.clear()
-            if len(segement) > frame_length:
-                found_segements.append({
-                    "start":segement[0]["time"],
-                    "end":segement[len(segement)-1]["time"],
-                })
-            # clear buffer in the very last end
-            segement.clear()
-        print(r_debug)
-        debug.plot(r_debug)
-        print("Found Segements: {}".format(len(found_segements)))
-        for s in found_segements:
-            print(s)
-        return found_segements
+        debug.plot(r)
+
     def discriminantCriterion(self, r_all):
         thresh = threshold_otsu(r_all.ravel())
         # out = r_all > thresh
@@ -180,12 +156,12 @@ class Chrous:
         r = self.calcSimilarity(chroma_vec)
         # 3. List repeated sections
         r_norm = self.normalizeSimilarity(r)
+        # 3.1 Calc R_all
         r_all = self.calculate_r_all(r_norm)
-
-        debug.plot(r_all)
+        self.findSegements(r_all,r)
         # r_peaks = self.pickpPeaks(r_norm)
 
-        self.findSegements(r_norm)
+        #self.findSegements(r_norm)
         # print(r_threshold)
         #debug.plot(r_norm)
         # r_f = self.movingAverageFilter(r_norm)

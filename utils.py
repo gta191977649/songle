@@ -13,6 +13,7 @@ def b_spline():
 def horiFilter(img,filter):
     L = len(filter)
     T = len(img)
+
     halfL = int((L-1)/2)
     out = np.empty(shape=(T,T))
     for t in range(0,T-1):
