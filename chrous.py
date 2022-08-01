@@ -3,20 +3,28 @@ import numpy as np
 import librosa
 import soundfile as sf
 import utils as helper
-import config as CONSTANT
+import config as CONF
 from skimage.filters import try_all_threshold, threshold_otsu
 import debug as debug
 import matplotlib.pyplot as plt
+import json
 
 
 class Chrous:
-    def __init__(self, file):
+    def __init__(self, file,len =5):
         self.file = file
+        self.len = len
 
     def extractChroma(self, filename):
-        y, sr = librosa.load(filename,duration=5)
-        sf.write("out.wav",y,sr)
+        y, sr = librosa.load(filename,mono=True, duration=self.len)
+        #sf.write("out.wav", y, sr)
         chroma = librosa.feature.chroma_stft(y=y, sr=sr)
+        #print(librosa.util.frame(y, frame_length=2048, hop_length=512).shape)
+        #print(chroma.shape)
+        # t = librosa.frames_to_time(chroma.shape[1])
+        # f = librosa.time_to_frames(t)
+        # print(t,f)
+        # print(chroma.shape)
         # Convert Chroma matrix to [ [time] => [Chroma..], ... ] forms align the data
         return chroma.T
 
@@ -45,17 +53,19 @@ class Chrous:
             for lag in range(0, t):
                 r[t, lag] = self.similarity(t, lag, chroma)
         return r
-    def calculate_r_all(self,r_norm):
+
+    def calculate_r_all(self, r_norm):
         T = r_norm.shape[0]
         r_all = np.zeros(shape=(T, T))
-        for t in range(0,T):
-            for lag in range(0,t):
+        for t in range(0, T):
+            for lag in range(0, t):
                 temp = 0
-                for tau in range(lag,t):
-                    temp = temp + r_norm[tau,lag]
+                for tau in range(lag, t):
+                    temp = temp + r_norm[tau, lag]
 
-                r_all[t,lag] = temp / (t-lag+1)
+                r_all[t, lag] = temp / (t - lag + 1)
         return r_all
+
     def normalizeSimilarity(self, r):
         length = r.shape[0]
         r_norm = np.zeros(shape=(length, length))
@@ -84,18 +94,20 @@ class Chrous:
     def smoothed(self, r_all, t, l):
         k_size = 4
         r = 0
-        for w in range(-k_size, k_size):
+        for w in range(-k_size, k_size+1):
             # Check lag offest Boundary
             if l + w <= t and l + w > 0:
                 r = r + w * r_all[t, l + w]
         return r
-    def smoothDifferntial(self,r):
+
+    def smoothDifferntial(self, r):
         T = r.shape[0]
         out = np.zeros(shape=(T, T))
-        for frame in range(0,T):
-            for lag in range(0,frame):
-                out[frame,lag] = self.smoothed(r, frame, lag)
+        for frame in range(0, T):
+            for lag in range(0, frame):
+                out[frame, lag] = self.smoothed(r, frame, lag)
         return out
+
     def applyMovingAverageFilter(self, r):
         filter = helper.b_spline()
         r_all = r - helper.horiFilter(helper.vertFilter(r, filter), filter)
@@ -121,20 +133,98 @@ class Chrous:
 
     # r_all: the simaritly after normalization
     # r: the initial simaritly obtain by calculaye similarity function
-    def findSegements(self, r_all,r):
-        #frame_length = CONSTANT.FRAME_LEN * CONSTANT.THRESHOLD_LEN * 1000
-        frame_length = 300
+    def findSegements(self, r_all, r):
+        FRAME_LENGTH = librosa.time_to_frames(CONF.FRAME_TIME)
+        print("MINIMUM FRAME LEN: {} in {}s".format(FRAME_LENGTH,CONF.FRAME_TIME))
+        # frame_length = CONSTANT.FRAME_LEN * CONSTANT.THRESHOLD_LEN * 1000
         # 1. Obtain smooth r_all
         r_smooth = self.smoothDifferntial(r_all)
-        #debug.plot(r_smooth)
+        # debug.plot(r_smooth)
         # 2. Apply moving average filter (b-spline)
+
         r_filtered = self.applyMovingAverageFilter(r)
-        # 3. Find Threshold
+        print("MAX",np.max(r),"MIN",np.min(r))
+        print("MAX",np.max(r_filtered),"MIN",np.min(r_filtered))
+        # 3. Find Threshold based on r_filtered
+        r_trans = r_filtered.T
+        threshold = self.findThreshold(r_filtered + r_trans)
+        # print("max",np.max(r_filtered.flatten()),"min",np.min(r_filtered.flatten()))
 
-        debug.plot(r)
+        print("THRESHOLD", threshold)
+        T = len(r_filtered)
+        r_thr = np.zeros(shape=(T,T))
 
-    def discriminantCriterion(self, r_all):
-        thresh = threshold_otsu(r_all.ravel())
+        # Check points
+        segements = {}
+        for lag in range(0, T):
+            segement_buffer = []
+            for frame in range(0, lag):
+                s = r_filtered[lag, frame]
+                if s > threshold:
+                    r_thr[lag,frame] = 1
+                else:
+                    r_thr[lag, frame] = 0
+
+        debug.plot(r_thr)
+
+
+    # def findSegements(self, r_all, r):
+    #     FRAME_LENGTH = librosa.time_to_frames(CONF.FRAME_TIME)
+    #     print("MINIMUM FRAME LEN: {} in {}s".format(FRAME_LENGTH,CONF.FRAME_TIME))
+    #     # frame_length = CONSTANT.FRAME_LEN * CONSTANT.THRESHOLD_LEN * 1000
+    #     # 1. Obtain smooth r_all
+    #     r_smooth = self.smoothDifferntial(r_all)
+    #     # debug.plot(r_smooth)
+    #     # 2. Apply moving average filter (b-spline)
+    #     r_filtered = self.applyMovingAverageFilter(r)
+    #     print("MAX",np.max(r_filtered),"MIN",np.min(r_filtered))
+    #     # 3. Find Threshold based on r_filtered
+    #     threshold = self.findThreshold(r_filtered)
+    #     # print("max",np.max(r_filtered.flatten()),"min",np.min(r_filtered.flatten()))
+    #
+    #     print("THRESHOLD", threshold)
+    #     T = len(r_filtered)
+    #     r_thr = np.zeros(shape=(T,T))
+    #
+    #     # Check points
+    #     segements = {}
+    #     for lag in range(0, T):
+    #         segement_buffer = []
+    #         for frame in range(0, lag):
+    #             #print(frame, lag)
+    #             s = r_filtered[lag, frame]
+    #             if s > threshold: # append to buffer, and ensure it's continues values
+    #                 segement_buffer.append({
+    #                     "lag":lag,
+    #                     "frame":frame,
+    #                 })
+    #                 # High light it anyway
+    #                 r_thr[lag, frame] = 1
+    #             elif s < threshold or frame == lag-1:
+    #                 # Drop if the segement if is less than the frame target len
+    #                 if len(segement_buffer) < FRAME_LENGTH:
+    #                     segement_buffer.clear()
+    #                 else:
+    #                     if not lag in segements:
+    #                         segements[lag] = {
+    #                             "sections": [],
+    #                         }
+    #                     ts = librosa.frames_to_time(segement_buffer[0]["frame"])
+    #                     td = librosa.frames_to_time(segement_buffer[len(segement_buffer)-1]["frame"])
+    #                     segements[lag]["sections"].append({
+    #                         "start": ts,
+    #                         "end": td,
+    #                     })
+    #                     segement_buffer.clear()
+    #                 r_thr[lag, frame] = 0
+    #     debug.plot(r_thr)
+    #     return segements
+
+
+
+    # Apply Discriminant Criterion (Find threshold)
+    def findThreshold(self, r_all):
+        thresh = threshold_otsu(r_all.flatten())
         # out = r_all > thresh
         # from PIL import Image
         # pil_image = Image.fromarray(out)
@@ -158,12 +248,13 @@ class Chrous:
         r_norm = self.normalizeSimilarity(r)
         # 3.1 Calc R_all
         r_all = self.calculate_r_all(r_norm)
-        self.findSegements(r_all,r)
+
+        segements = self.findSegements(r_all, r)
         # r_peaks = self.pickpPeaks(r_norm)
 
-        #self.findSegements(r_norm)
+        # self.findSegements(r_norm)
         # print(r_threshold)
-        #debug.plot(r_norm)
+        # debug.plot(r_norm)
         # r_f = self.movingAverageFilter(r_norm)
         # print(r_f)
         # print(r_threshold)
@@ -174,7 +265,28 @@ class Chrous:
         # debug.plotHorilFilter(r_norm)
         # debug.plotVertFilter(r_norm)
 
-
+        return segements
 if __name__ == '__main__':
-    chrous = Chrous("1.mp3")
-    chrous.detect()
+    sample_length = 15
+    chrous = Chrous("marigorudo.mp3", sample_length)
+    segments = chrous.detect()
+
+    # Write segments to file
+    # y, sr = librosa.load("marigorudo.mp3", mono=True, duration=sample_length)
+    # for lag in segments:
+    #     s_len = len(segments[lag]["sections"])
+    #     s = segments[lag]["sections"]
+    #     idx = 0
+    #     if s_len >= 2:
+    #         for section in s:
+    #             #Start frame
+    #             f_s = round(librosa.time_to_frames(section["start"])) * sr
+    #             f_e = round(librosa.time_to_frames(section["end"])) * sr
+    #             data = np.array(y[f_s:f_e])
+    #             filename = "./segement/out_{}_{}.wav".format(lag,idx)
+    #             sf.write(filename,data, sr)
+    #             idx = idx + 1
+    #             print(filename)
+    #             print(section)
+
+    #print(segments)
