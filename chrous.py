@@ -11,7 +11,7 @@ import json
 
 
 class Chrous:
-    def __init__(self, file,len =5):
+    def __init__(self, file,len = None):
         self.file = file
         self.len = len
 
@@ -155,9 +155,7 @@ class Chrous:
         r_thr = np.zeros(shape=(T,T))
 
         # Check points
-        segements = {}
         for lag in range(0, T):
-            segement_buffer = []
             for frame in range(0, lag):
                 s = r_filtered[lag, frame]
                 if s > threshold:
@@ -165,8 +163,27 @@ class Chrous:
                 else:
                     r_thr[lag, frame] = 0
 
+        # find the segements only > FRAME_LENGTH
+        print("FILTER SEGMENTS > ",FRAME_LENGTH)
+        segements = {}
+        for lag in range(0, T):
+            head_ptr = -1
+            for current_ptr in range(0,lag):
+                s = r_thr[lag, current_ptr]
+                if s == 1:
+                    if head_ptr == -1:
+                        head_ptr = current_ptr
+                elif head_ptr != -1: # only check when head pointer is being set
+                    # This is the section what we want
+                    if current_ptr - head_ptr >= FRAME_LENGTH:
+                        print(head_ptr, current_ptr)
+                        print("LAG", lag, "FOUND SECTION LEN", current_ptr - head_ptr)
+                    else: #otherwise, removed the array set to 0
+                        for ptr in range(head_ptr,current_ptr):
+                            r_thr[lag, ptr] = 0
+                    # reset head_pointer
+                    head_ptr = -1
         debug.plot(r_thr)
-
 
     # def findSegements(self, r_all, r):
     #     FRAME_LENGTH = librosa.time_to_frames(CONF.FRAME_TIME)
@@ -267,8 +284,8 @@ class Chrous:
 
         return segements
 if __name__ == '__main__':
-    sample_length = 15
-    chrous = Chrous("marigorudo.mp3", sample_length)
+    sample_length = 20
+    chrous = Chrous("marigorudo.mp3")
     segments = chrous.detect()
 
     # Write segments to file
