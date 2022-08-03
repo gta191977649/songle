@@ -172,7 +172,7 @@ class Chrous:
                     # This is the section what we want
                     if current_ptr - head_ptr >= FRAME_LENGTH:
                         s_2 = [head_ptr, current_ptr]
-                        s_1 = [lag-head_ptr,lag-current_ptr]
+                        s_1 = [lag-current_ptr,lag-head_ptr]
 
                         print(s_1,"->", s_2)
                         print("LAG", lag, "FOUND SECTION LEN", current_ptr - head_ptr)
