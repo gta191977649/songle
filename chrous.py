@@ -8,25 +8,20 @@ from skimage.filters import try_all_threshold, threshold_otsu
 import debug as debug
 import matplotlib.pyplot as plt
 import json
-
+import filewriter as file
 
 class Chrous:
     def __init__(self, file,len = None):
         self.file = file
         self.len = len
+        self.chroma,self.audio = self.extractChroma(file)
 
     def extractChroma(self, filename):
         y, sr = librosa.load(filename,mono=True, duration=self.len)
         #sf.write("out.wav", y, sr)
         chroma = librosa.feature.chroma_stft(y=y, sr=sr)
-        #print(librosa.util.frame(y, frame_length=2048, hop_length=512).shape)
-        #print(chroma.shape)
-        # t = librosa.frames_to_time(chroma.shape[1])
-        # f = librosa.time_to_frames(t)
-        # print(t,f)
-        # print(chroma.shape)
         # Convert Chroma matrix to [ [time] => [Chroma..], ... ] forms align the data
-        return chroma.T
+        return chroma.T,y
 
     def similarity(self, t, l, chroma):
         # structure with article
@@ -176,8 +171,13 @@ class Chrous:
                 elif head_ptr != -1: # only check when head pointer is being set
                     # This is the section what we want
                     if current_ptr - head_ptr >= FRAME_LENGTH:
-                        print(head_ptr, current_ptr)
+                        s_2 = [head_ptr, current_ptr]
+                        s_1 = [lag-head_ptr,lag-current_ptr]
+
+                        print(s_1,"->", s_2)
                         print("LAG", lag, "FOUND SECTION LEN", current_ptr - head_ptr)
+                        file.outputSectionWav(self.audio,lag,s_1[0],s_1[1])
+                        file.outputSectionWav(self.audio,lag,s_2[0],s_2[1])
                     else: #otherwise, removed the array set to 0
                         for ptr in range(head_ptr,current_ptr):
                             r_thr[lag, ptr] = 0
@@ -258,7 +258,8 @@ class Chrous:
 
     def detect(self):
         # 1. Extract feature
-        chroma_vec = self.extractChroma(self.file)
+        #chroma_vec = self.extractChroma(self.file)
+        chroma_vec = self.chroma
         # 2. Calculate similarity between chroma vectors
         r = self.calcSimilarity(chroma_vec)
         # 3. List repeated sections
@@ -284,8 +285,8 @@ class Chrous:
 
         return segements
 if __name__ == '__main__':
-    sample_length = 20
-    chrous = Chrous("marigorudo.mp3")
+    sample_length = 60
+    chrous = Chrous("marigorudo.mp3",sample_length)
     segments = chrous.detect()
 
     # Write segments to file
