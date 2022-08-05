@@ -4,7 +4,7 @@ import math
 
 def plot(out):
     checkNan(out)
-    plt.imshow(out,interpolation='none')
+    plt.imshow(out,interpolation='none',origin='lower')
     plt.show()
     # x = []
     # y = []

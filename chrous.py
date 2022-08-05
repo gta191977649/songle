@@ -133,7 +133,7 @@ class Chrous:
         print("MINIMUM FRAME LEN: {} in {}s".format(FRAME_LENGTH,CONF.FRAME_TIME))
         # frame_length = CONSTANT.FRAME_LEN * CONSTANT.THRESHOLD_LEN * 1000
         # 1. Obtain smooth r_all
-        r_smooth = self.smoothDifferntial(r_all)
+        #r_smooth = self.smoothDifferntial(r_all)
         # debug.plot(r_smooth)
         # 2. Apply moving average filter (b-spline)
 
@@ -163,8 +163,8 @@ class Chrous:
         segements = {}
         for lag in range(0, T):
             head_ptr = -1
-            for current_ptr in range(0,lag):
-                s = r_thr[lag, current_ptr]
+            for current_ptr in range(lag,T):
+                s = r_thr[current_ptr, lag]
                 if s == 1:
                     if head_ptr == -1:
                         head_ptr = current_ptr
@@ -172,7 +172,7 @@ class Chrous:
                     # This is the section what we want
                     if current_ptr - head_ptr >= FRAME_LENGTH:
                         s_2 = [head_ptr, current_ptr]
-                        s_1 = [lag-current_ptr,lag-head_ptr]
+                        s_1 = [head_ptr-lag,current_ptr-lag]
 
                         print(s_1,"->", s_2)
                         print("LAG", lag, "FOUND SECTION LEN", current_ptr - head_ptr)
@@ -180,7 +180,7 @@ class Chrous:
                         file.outputSectionWav(self.audio,lag,s_2[0],s_2[1])
                     else: #otherwise, removed the array set to 0
                         for ptr in range(head_ptr,current_ptr):
-                            r_thr[lag, ptr] = 0
+                            r_thr[ptr,lag] = 0
                     # reset head_pointer
                     head_ptr = -1
         debug.plot(r_thr)
@@ -285,7 +285,7 @@ class Chrous:
 
         return segements
 if __name__ == '__main__':
-    sample_length = 60
+    sample_length = 30
     chrous = Chrous("marigorudo.mp3",sample_length)
     segments = chrous.detect()
 
