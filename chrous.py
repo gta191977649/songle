@@ -103,28 +103,28 @@ class Chrous:
                 out[frame, lag] = self.smoothed(r, frame, lag)
         return out
 
-    def applyMovingAverageFilter(self, r):
-        filter = helper.b_spline()
-        r_all = r - helper.horiFilter(helper.vertFilter(r, filter), filter)
-        return r_all
+    def applyMovingAverageFilter(self, r, filter_len):
+        filter = helper.b_spline(filter_len)
+        r_filt = helper.horiFilter(helper.vertFilter(r, filter), filter)
+        return r_filt
 
     # Old approach use change sign
-    def pickpPeaks_old(self, r_all):
-        peaks = []
-        # apply b-spline filter
-        r_all = self.movingAverageFilter(r_all)
-        length = r_all.shape[0]
-        for frame in range(0, length):
-            smooth_diff = []
-            for lag in range(0, frame):
-                # apply smooth differential
-                diff = self.smoothed(r_all, frame, lag)
-                smooth_diff.append(diff)
-
-            peaks_indices = np.where(np.diff(np.sign(smooth_diff)))[0].tolist()
-            # print(peaks_indices)
-            peaks.append(peaks_indices)
-        return peaks
+    # def pickpPeaks_old(self, r_all):
+    #     peaks = []
+    #     # apply b-spline filter
+    #     r_all = self.movingAverageFilter(r_all)
+    #     length = r_all.shape[0]
+    #     for frame in range(0, length):
+    #         smooth_diff = []
+    #         for lag in range(0, frame):
+    #             # apply smooth differential
+    #             diff = self.smoothed(r_all, frame, lag)
+    #             smooth_diff.append(diff)
+    #
+    #         peaks_indices = np.where(np.diff(np.sign(smooth_diff)))[0].tolist()
+    #         # print(peaks_indices)
+    #         peaks.append(peaks_indices)
+    #     return peaks
 
     # r_all: the simaritly after normalization
     # r: the initial simaritly obtain by calculaye similarity function
@@ -137,7 +137,7 @@ class Chrous:
         # debug.plot(r_smooth)
         # 2. Apply moving average filter (b-spline)
 
-        r_filtered = self.applyMovingAverageFilter(r)
+        r_filtered = self.applyMovingAverageFilter(r,3)
         print("MAX",np.max(r),"MIN",np.min(r))
         print("MAX",np.max(r_filtered),"MIN",np.min(r_filtered))
         # 3. Find Threshold based on r_filtered
@@ -151,15 +151,15 @@ class Chrous:
 
         # Check points
         for lag in range(0, T):
-            for frame in range(0, lag):
-                s = r_filtered[lag, frame]
+            for frame in range(lag, T):
+                s = r_filtered[frame, lag]
                 if s > threshold:
-                    r_thr[lag,frame] = 1
+                    r_thr[frame,lag] = 1
                 else:
-                    r_thr[lag, frame] = 0
-
+                    r_thr[frame,lag] = 0
         # find the segements only > FRAME_LENGTH
         print("FILTER SEGMENTS > ",FRAME_LENGTH)
+        #return debug.plot(r_thr)
         segements = {}
         for lag in range(0, T):
             head_ptr = -1
@@ -168,7 +168,7 @@ class Chrous:
                 if s == 1:
                     if head_ptr == -1:
                         head_ptr = current_ptr
-                elif head_ptr != -1: # only check when head pointer is being set
+                elif head_ptr != -1 and s == 0: # only check when head pointer is being set
                     # This is the section what we want
                     if current_ptr - head_ptr >= FRAME_LENGTH:
                         s_2 = [head_ptr, current_ptr]
@@ -285,7 +285,7 @@ class Chrous:
 
         return segements
 if __name__ == '__main__':
-    sample_length = 30
+    sample_length = None
     chrous = Chrous("marigorudo.mp3",sample_length)
     segments = chrous.detect()
 

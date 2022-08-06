@@ -2,8 +2,8 @@ import numpy as np
 from scipy import signal
 import matplotlib.pyplot as plt
 
-def b_spline():
-    b_size = 5
+def b_spline(b_size = 5):
+    #b_size
     bfilt = np.ones(b_size)
     spline = signal.fftconvolve(bfilt, signal.fftconvolve(bfilt, bfilt,mode='same'),mode='same')
     #spline = bfilt
